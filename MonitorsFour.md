@@ -1,8 +1,5 @@
 # MonitorsFour Write-up
 
-> Hack The Box / CTF write-up  
-> Flag values have been intentionally removed.
-
 ## Enumeration
 
 I started with an Nmap scan:
@@ -295,11 +292,3 @@ Privileged container output
   ↓
 root
 ```
-
-## Notes
-
-- All user and root flag values have been removed.
-- Commands whose only purpose was to print `user.txt` directly were omitted from the public version.
-- The root-producing Docker logs command is retained because it is part of the exploitation chain, but its output is not shown.
-- Text that originally appeared only inside screenshots has been rewritten as searchable, copyable Markdown.
-- The contents of `2.py` and `container.json` were not present in the supplied write-up, so they were not reconstructed or guessed.
