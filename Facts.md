@@ -1,7 +1,6 @@
 # Facts Write-up
 
-> Hack The Box / CTF write-up  
-> Flag values have been intentionally removed.
+
 
 ## Enumeration
 
@@ -183,10 +182,3 @@ Passwordless sudo
   ↓
 root
 ```
-
-## Notes
-
-- All user and root flag values have been removed.
-- Commands whose only purpose was to print a flag were omitted.
-- Information that originally appeared only inside screenshots has been rewritten as searchable, copyable text.
-- The source write-up shows the vulnerable Camaleon CMS media request in Burp Suite, but it does not provide a CVE identifier for that step, so none has been added here.
