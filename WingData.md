@@ -359,8 +359,3 @@ NOPASSWD sudo
 root
 ```
 
-## Notes
-
-- All user and root flag values have been removed.
-- Commands that explicitly printed the flags in the original screenshots were also removed from the public version.
-- Text that appeared only inside screenshots has been rewritten as searchable, copyable Markdown.
