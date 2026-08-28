@@ -1,7 +1,5 @@
 # CCTV Write-up
 
-> Hack The Box / CTF write-up  
-> Flag values have been intentionally removed.
 
 ## Enumeration
 
@@ -206,11 +204,3 @@ Command injection / reverse-shell payload
   ↓
 root access
 ```
-
-## Notes
-
-- All user and root flag values have been removed.
-- Text from the screenshots has been rewritten as searchable, copyable Markdown.
-- The ZoneMinder CVE and motionEye CVE names are preserved exactly as stated in the supplied write-up.
-- The source does not include the exact CVE-2024-51482 PoC command or the bcrypt hash itself, so those details were not guessed or reconstructed.
-- The source also does not show the final reverse-shell transcript after the motionEye exploit, so only the exploit output actually present in the write-up is reproduced.
