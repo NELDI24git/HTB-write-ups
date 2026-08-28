@@ -1,7 +1,5 @@
 # NanoCorp Write-up
 
-> Hack The Box / CTF write-up  
-> Flag values and flag-reading commands have been intentionally removed.
 
 ## Enumeration
 
@@ -424,11 +422,3 @@ Privileged command execution
 Administrator
 ```
 
-## Notes
-
-- All flag values have been removed.
-- Commands whose only purpose was to display the user or Administrator flag have also been removed.
-- Russian comments from the original PowerShell payload were translated to English.
-- Content that was shown only inside screenshots has been rewritten as searchable, copyable text.
-- The source write-up does not show how the initial `WEB_SVC` credentials were obtained, so that step is explicitly left undocumented rather than guessed.
-- The exact vulnerability identifier for the Checkmk/MSI repair privilege-escalation technique is not stated in the supplied write-up, so no CVE number has been invented.
