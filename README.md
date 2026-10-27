@@ -18,6 +18,7 @@ A quick index to the write-ups in this repository. Choose a difficulty below to 
 - [Reactor](Reactor.md)
 - [Silentium](Silentium.md)
 - [WingData](WingData.md)
+- [TwoMillion](TwoMillion.md)
 
 ### Medium 
 
