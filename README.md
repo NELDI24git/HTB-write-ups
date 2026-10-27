@@ -9,7 +9,7 @@ A quick index to the write-ups in this repository. Choose a difficulty below to 
 
 ## Write-ups by difficulty
 
-### Easy · 7
+### Easy 
 
 - [CCTV](CCTV.md)
 - [Expressway](Expressway.md)
@@ -19,7 +19,7 @@ A quick index to the write-ups in this repository. Choose a difficulty below to 
 - [Silentium](Silentium.md)
 - [WingData](WingData.md)
 
-### Medium · 8
+### Medium 
 
 - [Abducted](Abducted.md)
 - [Checkpoint](Checkpoint.md)
@@ -30,15 +30,11 @@ A quick index to the write-ups in this repository. Choose a difficulty below to 
 - [SmartHire](SmartHire.md)
 - [VariaType](VariaType.md)
 
-### Hard · 2
+### Hard 
 
 - [NanoCorp](NanoCorp.md)
 - [Nimbus](Nimbus.md)
 
-### Insane · 0
+### Insane 
 
 No write-ups in this category yet.
-
-### Unverified · 0
-
-No write-ups in this category.
