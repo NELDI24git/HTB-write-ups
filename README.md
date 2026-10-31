@@ -30,6 +30,7 @@ A quick index to the write-ups in this repository. Choose a difficulty below to 
 - [Principal](Principal.md)
 - [SmartHire](SmartHire.md)
 - [VariaType](VariaType.md)
+- [MakeSense](MakeSense.md)
 
 ### Hard 
 
