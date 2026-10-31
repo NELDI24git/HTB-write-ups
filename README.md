@@ -19,6 +19,7 @@ A quick index to the write-ups in this repository. Choose a difficulty below to 
 - [Silentium](Silentium.md)
 - [WingData](WingData.md)
 - [TwoMillion](TwoMillion.md)
+- [Nexus](Nexus.md)
 
 ### Medium 
 
