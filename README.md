@@ -37,6 +37,7 @@ A quick index to the write-ups in this repository. Choose a difficulty below to 
 
 - [NanoCorp](NanoCorp.md)
 - [Nimbus](Nimbus.md)
+- [Garfield](Garfield.md)
 
 ### Insane 
 
